@@ -1,0 +1,743 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja" dir="ltr">
+<head profile="http://purl.org/net/ns/metaprof">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Armadillo手順書</title>
+<meta name="keywords" content="Armadillo" lang="ja" xml:lang="ja" />
+<meta name="description" content="Armadillo IoT G2の手順書" lang="ja" xml:lang="ja" />
+<meta http-equiv="content-style-type" content="text/css" />
+<meta http-equiv="content-script-type" content="text/javascript" />
+<meta http-equiv="content-language" content="ja" />
+<meta name="author" content="福嶋開人" />
+<link rel="shortcut icon" href="icon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script type="text/javascript" src="scripts/shCore.js"></script>
+	<script type="text/javascript" src="scripts/shBrushJScript.js"></script>
+	<link type="text/css" rel="stylesheet" href="styles/shCoreDefault.css"/>
+	<script type="text/javascript">SyntaxHighlighter.all();</script>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+<!--[if lt IE 9]>
+<script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.2/html5shiv.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/respond.js/1.4.2/respond.min.js"></script>
+<![endif]-->
+</head>
+
+<body>
+
+<div id="out">
+	<div id="head">
+		<img align="right" src="logo.png" alt="アットマークテクノ ユーザーズサイト">
+		<h1>Armadillo手順書</h1>
+		<h2><a href="http://armadillo.atmark-techno.com/armadillo-iot-g2">Armadillo IoT G2</a>の手順書</h2>
+	</div>
+
+	<div id="main">
+		<div id="menu">
+			<a href="#name1">Debian構築</a> | <a href="#name2">必要そうなコマンド入れる</a> | <a href="#name3">自動でコマンドを実行する</a> 
+			| <a href="#name4">3Gルータにする</a> | <a href="#name5">NFCPYを使ってみる</a> | <a href="#name6">OSカスタマイズ</a>
+		</div>
+		
+		<h4><a name="name1">DebianをSDに構成する</a></h4>
+			<p>
+				本体起動できるようになったので<br>
+				<a href="http://manual.atmark-techno.com/armadillo-iot/armadillo-iotg-std_product_manual_ja-2.8.0/ch14.html">
+				Armadillo-IoT ゲートウェイ 製品マニュアル / 第14章 Armadillo-IoT 上に Debian GNU/Linux を構築する
+				</a><br>と全く同じ手順でやる。</p>
+				<p>hermit > setbootdevice flash<br>
+				hermit > clearenv<br>
+				hermit > boot<br>
+				で起動。<br>
+				戻すときは、<br>
+				hermit> setbootdevice mmcblk0p1		(しなくていいカーネルもｓｄのとき)<br>
+				hermit> setenv console=ttymxc1,115200 root=/dev/mmcblk0p1 noinitrd rootwait<br>
+				Simスロットはアドオンボードの下の基盤の奥深くについているので、ドライバ必須<br>
+			</p>
+			<p>
+				※armadillo-iotg login: mmc1: queuing unknown CIS tuple 0x10 (5 bytes) <br>
+				mmc1: queuing unknown CIS tuple 0x10 (5 bytes) <br>
+				mmc1: new high speed SDIO card at address f6d0 <br>
+				random: nonblocking pool is initialized<br>
+			</p>
+			
+			<p>
+				<s>このエラーは無線モジュールAWL13とSDカードの制御信号が同じであることに起因するものであった。</s><br>
+				ここでブロッキングが起きるので、AWL13モジュールをいったん外して対応しSDブートまでできれば無視されるようになる。<br>
+				嘘です。<a href="http://armadillo.atmark-techno.com/news/20150831/software-update-aiot">↑Linuxカーネルのバグらしい</a>ので更新しましょう。
+				表示後Enter押せば何事もなかったようにログインに遷移します。
+			</p>
+			
+			<p>
+				TeraTermでシリアル接続<br>
+				COM11で接続後、設定＞シリアルポート設定＞ポートレート＞115200に変更<br>
+			</p>
+			<p>
+				途中にダウンロードする手順があるのでネットワーク設定をしてから。<br>
+				3GにはソラコムのSimを差して使用、有線の場合はLANケーブルの差し忘れに注意<br>
+				リンク先では/etc/config/interfacesになっているが、RAM起動のAtmarkDistのファイル構成の場合、<br>
+				今回はSD起動のDebianを用いるので以下のようになっている。
+			</p>
+			-------------------------------------------------<br>
+			armadillo ~# cat /etc/network/interfaces <br>
+			# interfaces(5) file used by ifup(8) and ifdown(8)<br>
+			auto lo eth0<br>
+			iface lo inet loopback<br>
+			iface eth0 inet<span style="color:red"> static<br>
+			&emsp;&emsp;address 172.16.13.201	＃ アドレスの重複がないように<br>
+			&emsp;&emsp;netmask 255.255.0.0<br>
+			&emsp;&emsp;broadcast 172.16.255.255<br>
+			&emsp;&emsp;gateway 172.16.0.1&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;＃有線使うならいる。<br></span>
+			iface umts0 inet dhcp <br>
+			<span style="color:blue">&emsp;&emsp;pre-up 3g-set-ap soracom.io sora sora PAP IP	＃3G使うならいる</span><br>
+			&emsp;&emsp;pre-up 3g-connect<br>
+			&emsp;&emsp;post-up 3g-monitor start<br>
+			&emsp;&emsp;pre-down 3g-monitor stop<br>
+			&emsp;&emsp;post-down 3g-disconnect<br>
+			--------------------------------------------------<br>
+			armadillo ~# cat etc/resolv.conf<br>
+			domain local-network<br>
+			search local-network<br>
+			<span style="color:red">nameserver 210.238.228.202&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;＃有線使うならいる。	3Gだと再起動時に自動設定<br></span>
+			---------------------------------------------------<br>
+			再起動すると設定が反映される<br>
+			armadillo ~# ifdown <span style="color:red">eth0</span>(もしくは<span style="color:blue">umts0</span>)<br>
+			armadillo ~# ifup <span style="color:red">eth0</span>(もしくは<span style="color:blue">umts0</span>)<br>
+			
+			<p>
+				ここまででリンクの内容おわり。RAMなので電源落とすと揮発する。(Atmark-Dist)
+			</p>
+				
+				
+				
+		<h4>Debian</h4>
+			<p>起動後、同じくネットワーク設定をする。</p>
+			<p>	設定後</p>
+			<p>	root@debian:~# apt-get update</p>
+			<p>	root@debian:~# apt-get upgrade</p>
+			<p>
+				任意で<a href="http://qiita.com/white_aspara25/items/723ae4ebf0bfefe2115c"> 
+				[Ubuntu] apt-get まとめ - Qiita</a>
+			</p>
+			
+
+		<h4><a name="name2">必要そうなコマンド入れる。</a></h4>
+			<h3>sudoコマンド</h3>
+				<p>sudoコマンドを入れる<br>root@debian:~# apt-get -y install sudo</p>
+				<p>sudoを使える設定にする<br>root@debian:~# visudo</p>
+				<p>	--------------------------------------------------<br>
+					GNU nano 2.2.6                       File: /etc/sudoers.tmp       <br>
+					Modified
+					
+					#<br>
+					# This file MUST be edited with the 'visudo' command as root.<br>
+					#<br>
+					# Please consider adding local content in /etc/sudoers.d/ instead of<br>
+					# directly modifying this file.<br>
+					#<br>
+					# See the man page for details on how to write a sudoers file.<br>
+					#<br>
+					Defaults&emsp;&emsp;env_reset<br>
+					Defaults&emsp;&emsp;mail_badpass<br>
+					Defaults&emsp;&emsp;secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"<br>
+					<br>
+					# Host alias specification<br>
+					<br>
+					# User alias specification<br>
+					<br>
+					# Cmnd alias specification<br>
+					<br>
+					# User&nbsp;privilege&nbsp;specification<br>
+					root&emsp;ALL=(ALL:ALL)&nbsp;ALL<br>
+					<span style="color:red">atmark&emsp;ALL=(ALL:ALL)&nbsp;ALL&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;＃ココ</span><br>
+					<br>
+					# Allow members of group sudo to execute any command<br>
+					%sudo   ALL=(ALL:ALL) ALL<br>
+					<br>
+					# See sudoers(5) for more information on "#include" directives:<br>
+					<br>
+					#includedir /etc/sudoers.d<br>
+					---------------------------------------------------------<br>
+					これでsudoがつかえるようになった。
+				</p>
+			<h3>その他</h3>
+				<p>Cコンパイラを入れる<br>atmark@debian:~$ sudo apt-get -y install gcc</p>
+				<p>makeを入れる<br>atmark@debian:~$ sudo apt-get -y install build-essential</p>
+				<p>SSHを入れる<br>atmark@debian:~$ sudo apt-get -y install ssh</p>
+				<p>日本語を入れる<br>atmark@debian:~$ sudo apt-get -y install task-japanese</p>
+				<p>
+					NTPから時刻をとる<br>atmark@debian:~$ sudo apt-get -y install ntpdate<br>
+					日本時間にする<br>atmark@debian:~$ sudo cp  /usr/share/zoneinfo/Asia/Tokyo /etc/localtime<br>
+					JSTが設定されているか確認<br>atmark@debian:~$ strings /etc/localtimeとか
+					<br>atmark@debian:~$ date
+				</p>
+				<p>
+					viを拡張する。エディタは<a href="https://www.wikiwand.com/ja/%E3%82%A8%E3%83%87%E3%82%A3%E3%82%BF%E6%88%A6%E4%BA%89">宗教的な部分</a>があるので、
+					Emacsでもnanoでも好きなの入れた方がいいと思います。<br>
+					WindowsとかでVSとかXcodeとかAtom、さくら、秀丸使って組んでしまって貼り付けとかでもいいと思います。<br>
+					atmark@debian:~$ sudo apt-get -y install vim-nox
+				</p>
+				<p>
+					色付け設定<br>atmark@debian:~$ vi ~/.vimrc<br>
+					-------------------------------------------------<br>
+					:syntax on<br>
+					-------------------------------------------------
+				</p>
+				<p>
+					<br>※　今までにapt-getしたコマンド一覧(つまり使えるコマンド一覧)<br>atmark@debian:~$ dpkg -l
+				</p>
+				
+				
+				
+		<h4><a name="name3">自動でコマンドを実行する</a></h4>
+			<h3>起動時</h3>
+				起動時にいちいち設定するのは効率的でない。/etc/rc.local　の中に書き込んでおけば、起動時に自動的に実行してくれる。
+				<p>
+					起動時にコマンドを実行する<br>atmark@debian:~$ sudo vi /etc/rc.local
+				</p>
+				#!/bin/sh -e<br>
+				#<br>
+				# rc.local<br>
+				#<br>
+				# This script is executed at the end of each multiuser runlevel.<br>
+				# Make sure that the script will "exit 0" on success or any other<br>
+				# value on error.<br>
+				#<br>
+				# In order to enable or disable this script just change the execution<br>
+				# bits.<br>
+				#<br>
+				# By default this script does nothing.<br>
+				<br>
+				echo 1 > /sys/class/leds/led3/brightness<br>
+				ifdown eth0<br>
+				ifdown umts0<br>
+				ifup umts0<br>
+				ifup eth0<br>
+				ntpdate ntp.nict.jp<br>
+				hwclock --systohc<br>
+				echo 1 > /sys/class/leds/led4/brightness<br>
+				exit 0<br><br>
+				<p>
+					この工程が始まったらLED3を点灯させる。全てのネットワーク端子をつぶしてルートテーブルの優先度が高い順に起動する。
+					時刻合わせをし、ハードウェアクロックも同時に修正。すべて完了するとLED4を点灯させユーザに知らせる。<br>
+					この工程の終了に推定2分</p>
+			<h3>定期的</h3>
+				<p>
+					定期的にコマンドを実行する。<br>atmark@debian:~$ sudo vi /etc/crontab
+				</p>
+				# /etc/crontab: system-wide crontab<br>
+				# Unlike any other crontab you don't have to run the `crontab'<br>
+				# command to install the new version when you edit this file<br>
+				# and files in /etc/cron.d. These files also have username fields,<br>
+				# that none of the other crontabs do.<br>
+				<br>
+				SHELL=/bin/sh<br>
+				PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin<br>
+				<br>
+				# m h dom mon dow user  command<br>
+				17 *    * * *   root    cd / && run-parts --report /etc/cron.hourly<br>
+				25 6    * * *   root    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )<br>
+				47 6    * * 7   root    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )<br>
+				52 6    1 * *   root    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )<br>
+				00 12   * * *   root    ntpdate ntp.nict.jp<br>
+				#<br>
+				これで毎日12:00にNICTから時刻を取得する。
+					
+				
+				
+		<h4><a name="name4">3Gルータにする</a></h4>
+			<p>
+				PC - Eth0 - Armadillo - 3G - internet<br>
+				にできるようにアルマジロをルータ設定する。<br>
+				<a href="https://users.atmark-techno.com/blog/615/1831">Armadillo-IoT：ルーターとして使用してみた</a>と同じだがAtmark-distかDebianかの違いがある。
+			</p>
+			<h3>Armadillo側の設定</h3>
+				<p>atmark@debian:~$ sudo apt-get install dnsmasq</p>
+				<p>原因不明でネットワークにつながらないときは再起動<br>sudo halt)</p>
+				<p>atmark@debian:~$ sudo vi /etc/init.d/dnsmasq</P>
+				<p>
+					-----------------------------------------------------------------------------<br>
+					(省略)<br>
+					 
+					<span style="color:red">DNSMASQ_USER="root" &emsp;&emsp;&emsp;&emsp;← この行を追加　だいたい90行目ぐらい</span><br>
+					if [ ! "$DNSMASQ_USER" ]; then<br>
+					   DNSMASQ_USER="dnsmasq"<br>
+					fi<br>
+					 
+					(省略)コメントだけ、そんなに離れてない。<br>
+					 
+							# /var/run may be volatile, so we need to ensure that<br>
+							# /var/run/dnsmasq exists here as well as in postinst<br>
+							if [ ! -d /var/run/dnsmasq ]; then<br>
+							   mkdir /var/run/dnsmasq || return 2<br>
+							   chown <span style="color:red">root:root </span>/var/run/dnsmasq || return 2&emsp;&emsp;← この行を修正<br>
+							fi<br>
+					(省略)<br>
+					-----------------------------------------------------------------------------
+				</p>
+
+				<p>atmark@debian:~$ sudo vi /etc/dnsmasq.conf</p>
+				<p>
+					-----------------------------------------------------------------------------<br>
+					(省略)コメントずらりで1番下に追加<br>
+					<span style="color:red">dhcp-range=192.168.101.100,192.168.101.200,12h<br>
+					dhcp-leasefile=/var/lib/misc/dnsmasq.leases<br>
+					interface=eth0</span><br>
+					-----------------------------------------------------------------------------
+				</p>
+				<p>ipアドレス100-200までをeth0の動的割り当て領域に設定</p>
+				<p>
+					再起動<br>
+					atmark@debian:~$ sudo /etc/init.d/dnsmasq stop<br>
+					atmark@debian:~$ sudo /etc/init.d/dnsmasq start
+				</p>
+				
+				<span style="color:red">
+					rc.localに書き込むべき
+					<p>
+						atmark@debian:~$ su<br>
+						root@debian:/home/atmark# echo 1 > /proc/sys/net/ipv4/ip_forward<br>
+						root@debian:/home/atmark# iptables -t nat -A POSTROUTING -o umts0 -j MASQUERADE<br>
+						root@debian:/home/atmark# exit
+					</p>
+				</span>
+
+				<p>※これ以降IPアドレス指定でArmadilloと接続している(SSHやTelnetなど)と切れます。シリアルで</p>
+				<p>atmark@debian:~$ sudo vi /etc/network/interfaces</p>
+				<p>
+					元の---------------------------------------------------------------------------<br>
+					# interfaces(5) file used by ifup(8) and ifdown(8)<br>
+					auto lo eth0<br>
+					iface lo inet loopback<br>
+					iface eth0 inet static<br>
+					&emsp;&emsp;address 172.16.13.201<br>
+					&emsp;&emsp;netmask 255.255.0.0<br>
+					&emsp;&emsp;broadcast 172.16.255.255<br>
+					&emsp;&emsp;gateway 172.16.0.1<br>
+					iface umts0 inet dhcp<br>
+					&emsp;&emsp;pre-up 3g-set-ap soracom.io sora sora PAP IP<br>
+					&emsp;&emsp;pre-up 3g-connect<br>
+					&emsp;&emsp;post-up 3g-monitor start<br>
+					&emsp;&emsp;pre-down 3g-monitor stop<br>
+					&emsp;&emsp;post-down 3g-disconnect<br>
+					------------------------------------------------------------------------------
+				</p>
+
+				<p>
+					変更後------------------------------------------------------------------------<br>
+					"/etc/network/interfaces" 15L, 366C<br>
+					# interfaces(5) file used by ifup(8) and ifdown(8)<br>
+					auto lo eth0<br>
+					iface lo inet loopback<br>
+					iface eth0 inet static<br>
+					<span style="color:red">&emsp;&emsp;address 192.168.101.1	&emsp;&emsp;＃任意<br>
+					&emsp;&emsp;netmask 255.255.255.0</span><br>
+					iface umts0 inet dhcp<br>
+					&emsp;&emsp;pre-up 3g-set-ap soracom.io sora sora PAP IP<br>
+					&emsp;&emsp;pre-up 3g-connect<br>
+					&emsp;&emsp;post-up 3g-monitor start<br>
+					&emsp;&emsp;pre-down 3g-monitor stop<br>
+					&emsp;&emsp;post-down 3g-disconnect<br>
+					-------------------------------------------------------------------------------
+				</p>
+				atmark@debian:~$ ifdown eth0<br>
+				atmark@debian:~$ ifup eth0<br>
+				
+			<h3>PC側の設定</h3>
+				<p>
+					※ インターネットが設定完了まで使えなくなるので調べ物はすべて済ませる。<br>
+					※ 設定消えるのでバックアップとっておく。<br>
+					※ IPアドレス指定でArmadilloと接続している(TeraTermとか)と切れます。<br>
+					コンパネ→ネットワークとインターネット→ネットワークと共有センター→（左側）アダプターの設定の変更→ローカルエリア接続→
+					→プロパティ→ネットワークタブ→インターネットプロトコルバージョン4（TCP/IPｖ4）→
+					→プロパティ→全般タブ→IP自動的に取得＆DNS自動的に取得→→→OK<br>
+				</p>
+				atmark@debian:~$ sudo ifup eth0<br>
+				atmark@debian:~$ sudo ifdown eth0<br>
+				atmark@debian:~$ sudo ifup eth0<br>
+
+			<p>
+				PCがArmadilloにアドレスをとりに行くまで多少時間がかかるので待機。<br>
+			</p>
+				
+				
+				
+		<h4><a name="name5">NFCPYを使ってみる</a></h4>
+			<p>Pythonはデフォルトで2.7.3がインストールされている。コマンドはpython2.7なのでpythonだけではnot found.</P>
+			<p>
+				いろんなライブラリがあるけど<br>
+				ex) libusb,libpafe,libnfc,pynfc,nfcpy<br>
+				更新が止まっていたり、リーダが対応していなかったり、複雑そうだったりしたので
+				ラズパイの人たちがしていて資料が多そうなnfcpyにしてみる。
+			</p>
+			<p>
+				使用するリーダも同じ<a href="https://www.sony.co.jp/Products/felica/consumer/products/RC-S380.html">PaSoRi（パソリ）RC-S380</a>
+				でラズパイかアルマジロかの違いのみ<br>
+				ここらへんみて、nfcpyを入れる。
+			</p>
+			<p>
+				主に参考にしたの
+				<a href=http://devadjust.exblog.jp/23018234/>Raspberry Pi に nfcpy をインストールする手順</a><br>
+				同じようなので補完
+				<a href=http://tfukui2012.blog.fc2.com/blog-entry-21.html>Raspberry Pi 2 に Pasori RC-S380 を繋げて ID を読み出す - おうちらぼ</a><br>
+				NFCPyの公式
+				<a href=http://nfcpy.readthedocs.io/en/latest/topics/get-started.html>Python module for near field communication</a>
+				<br>
+			</p>
+			<p>
+				Bazaarをインストール。<br>
+				atmark@debian:~$ sudo apt-get install bzr
+			</p>
+			<p>
+				Bazaarを使ってnfcpyをもらってくる。<br>
+				atmark@debian:~$ bzr branch lp:nfcpy trunk
+			</p>
+			<p>
+				Python-usbをインストール。<br>
+				atmark@debian:~$ sudo apt-get install python-usb
+			</p>
+			<p>
+				pipまわりをインストール。<br>
+				atmark@debian:~$ sudo apt-get install python-pip<br>
+				atmark@debian:~$ sudo pip install libusb1<br>
+				atmark@debian:~$ sudo pip install pyserial
+			</p>
+
+			<p>
+				USBユーティリティをインストール。<br>
+				atmark@debian:~$ sudo apt-get install usbutils
+			</p>
+			<p>
+				atmark@debian:~$ lsusb<br>
+				---------------------------------------------------------------<br>
+				Bus 001 Device 002: ID 054c:06c3 Sony Corp.&emsp;&emsp;＃認識されてる。<br>
+				Bus 002 Device 005: ID 1519:0302<br>
+				Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub<br>
+				Bus 002 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub<br>
+				----------------------------------------------------------------
+			</p>
+			<p>
+				サンプルを実行してみる。<br>
+				atmark@debian:~$ cd ./trunk/examples<br>
+				atmark@debian:~/trunk/examples$ sudo python ./tagtool.py show
+			</p>
+			<p>
+				いちいちsudoしないようにする<br>
+				atmark@debian:~/trunk/examples$ ./tagtool.py --device usb:054c:06c3		＃lsusbで見たリーダのID
+			</p>
+			<p>
+				---------------------------------------------------------------------<br>
+				[nfc.clf] searching for reader on path usb:054c:06c3<br>
+				[main] access denied for device with path usb:054c:06c3<br>
+				[main] first match for path usb:054c:06c3 is usb:001:002<br>
+				[main] usb:001:002 is owned by root but you are atmark
+				[main] members of the root group may use usb:001:002<br>
+				[main] no contactless reader available<br>
+				---------------------------------------------------------------------
+			</p>
+			<p>
+				参考にしたサイトのラズパイでは詳しく対処法を教えてくれるが、アルマジロでは教えてくれない。
+				でも、同じ<span style="color:red">権限関連のエラー</span>が出てます。
+			</p>
+			<p>
+				atmark@debian:~/trunk/examples$ groups<br>
+				---------------------------------------------------------------------<br>
+				atmark<br>
+				---------------------------------------------------------------------<br>
+				所属グループがatmarkなのでatmarkにこのリーダの権限を付け加える。
+				＊plugdevっていうグループ作ってatmark(自分)を追加するのが王道らしい。邪道な長いコマンドを以下に
+			</p>
+
+			<p>
+				atmark@debian:~/trunk/examples$ sudo sh -c 'echo SUBSYSTEM==\"usb\",
+				ACTION==\"add\", ATTRS{idVendor}==\"054c\", ATTRS{idProduct}==\"06c3\",
+				GROUP=\"atmark\" >> /etc/udev/rules.d/nfcdev.rules'
+			</p>
+					 
+			 
+			<p>
+				<span style="color:red">!<<<注意>>>!再起動しないとできないの無限ループに陥る。</span><br>
+				atmark@debian:~/trunk/examples$ sudo reboot<br>
+				これで、sudoとかデバイスとか指定せずにタグの読み取り可能。
+			</p>
+
+			<p>
+				atmark@debian:~$ cd<br>
+				atmark@debian:~$ ./trunk/examples/tagtool.py<br>
+				---------------------------------------------------------------------<br>
+				[nfc.clf] searching for reader on path usb<br>
+				[nfc.clf] using SONY RC-S380/P NFC Port-100 v1.11 at usb:001:002<br>
+				** waiting for a tag **	&emsp;&emsp;&emsp;＃タグの読み取り待ち<br>
+				Type2Tag ID=04394DC2343580&emsp;&emsp;＃タグはType2<br>
+				NDEF Capabilities:<br>
+				&emsp;readable  = yes<br>
+				&emsp;writeable = yes<br>
+				&emsp;capacity  = 137 byte<br>
+				&emsp;message   = 0 byte<br>
+				---------------------------------------------------------------------<br>
+				atmark@debian:~$ ./trunk/examples/tagtool.py<br>
+				---------------------------------------------------------------------<br>
+				[nfc.clf] searching for reader on path usb<br>
+				[nfc.clf] using SONY RC-S380/P NFC Port-100 v1.11 at usb:001:002<br>
+				** waiting for a tag **&emsp;&emsp;&emsp;＃スマホを読み取らせる<br>
+				Type4ATag MIU=255 FWT=0.038664&emsp;&emsp;＃スマホはType4らしくあっさり<br>
+				---------------------------------------------------------------------
+			</p>
+
+			<p>
+				Androidスマホでタグの情報を見てみた<br>
+				RF technology : Type A (ISO/IEC 14443 TypeA)<br>
+				Tag type : Mifare Ultralight C (MF0ICU2)<br>
+				Manufacturer : NXP Semiconductors(Germany)<br>
+				ATQA : 0044<br>
+				SAK : 00
+			</p>
+
+			<p>
+				<span style="color:red">Mifare対応であるがFelica未対応のようだ。</span><br>
+				NFCは
+				<ul>
+				<li>安価なType-A(フィリップス)</li>
+				<li>セキュリティの高いType-B(モトローラ)</li>
+				<li>高速通信のType-F(ソニー)</li>
+				</ul>
+				の3種類がある。<br>
+				Aがマイフェアと呼ばれていた規格で、Fがフェリカである。
+			</p>
+
+
+			<p>
+				atmark@debian:~$ python<br>
+				Python 2.7.3 (default, Jun 21 2016, 20:38:54)<br>
+				[GCC 4.6.3] on linux2<br>
+				Type "help", "copyright", "credits" or "license" for more information.<br>
+				>>> import sys<br>
+				>>> sys.path.insert(1, '~/trunk/nfc')<br>
+				>>> import nfc<br>
+				>>> clf = nfc.ContactlessFrontend('usb')<br>
+				>>> print(clf)<br>
+				SONY RC-S380/P on usb:001:002<br>
+				>>> def connected(tag): print(tag); return False<br>
+				...&emsp;&emsp;＃Enterキーを押す<br>
+				>>> clf.connect(rdwr={'on-connect': connected})；&emsp;&emsp;＃タグをかざす<br>
+				Type2Tag 'NXP NTAG203' ID=04394DC2343580<br>
+				＜nfc.tag.tt2_nxp.NTAG203 object at 0xb67d2f50＞<br>
+				>>> clf.close()<br>
+				>>>&emsp;&emsp;＃Ctrl+Dで終了<br>
+				atmark@debian:~$<br>
+			</p>
+
+
+			<h3>ATDEでする場合</h3>
+				<p>
+					import nfcできない。<br>
+					atmark@atde5:~/trunk$ sudo ln -s /home/atmark/trunk/nfc/ /usr/lib/python2.7/dist-packages/nfc<br>
+					参照されないところに置いてあるので、モジュール群のファイルにリンクを張っておく。
+					(パスは適宜絶対パス/相対パスで指定しないとリンク先が変わってしまう)<br>
+					ATDEでPaSoRiを認識させるとき、USBポートで動作が変わるので認識されなかったら前やら後ろやらいろんなポートでするとつながる。
+				</P>
+			
+			
+		<h4><a name="name6">OSをカスタマイズする</a></h4>
+			<p>
+				LinuxのOSは核となるカーネル(Linuxとも)とそこに付随するユーザーランド(ルートファイルシステムとも)からなっている。
+				今まではDebianを使ってきたがDebianはサイズが大きすぎて本体のフラッシュメモリに入らない。
+				異常時や更新時のために本体からも起動できるようにする方法を探る。
+				Armadillo用のフラッシュ起動できるOSが<a href="http://armadillo.atmark-techno.com/atmark-dist">Atmark-Distとして配布</a>されているので、それをカスタマイズして最低限の動作をできるようにする。
+			</p>
+			<h3>ATDEの環境整備</h3>
+				<p>
+					アットマークが提供している開発環境<a href="http://armadillo.atmark-techno.com/atde">ATDE(Atmark Techno Development Environment)</a>
+					を使って開発を進める。構築は<a href="http://manual.atmark-techno.com/armadillo-iot/armadillo-iotg-std_product_manual_ja-2.8.0/ch04.html#sct.setup-environment">
+					第4章 Armadilloの電源を入れる前に</a>を参考に行う。ATDEのネットワーク設定はブリッジ(NATだとTFTPサーバが動かない)にし、Armadilloと同じく
+					<a href="#name1">network/interfacesとresolv.conf</a>を書き換える。
+					このipは社内ネットワーク内でかぶらないモノを用意する。
+				</p>
+				<p>
+					おすすめの追加設定として、
+					<ul>
+						<li>画面ロックと暗くしないようにシステム設定をいじっておく。</li>
+						<li>ホームディレクトリのフォルダ名を英語にする。</li>
+					</ul>
+					がある。
+				</p>
+				<p>
+					ホームディレクトリは以下のコマンドで変更できる。
+				</p>
+				<p>
+					atmark@atde5:~$ sudo apt-get install xdg-user-dirs-gtk<br>
+					atmark@atde5:~$ LANG=C xdg-user-dirs-gtk-update<br>
+				</P>
+				<p>
+					アップデートしていいか聞かれるので、Don't ask me this ageinにチェック入れてアップデートネーム。<br>
+					心の安心のために再起動。<br>
+					atmark@atde5:~$ sudo reboot
+				</p>
+			<h3>Atmark-Distのダウンロード</h3>
+				<p>
+					古いAtmark Distだと、Armadillo-IoTが含まれていなかった。
+					<a href="http://armadillo.atmark-techno.com/armadillo-iot-g2/downloads">最新版のユーザーランド (Atmark Dist)ソースファイルとカーネル</a>を持ってくる。
+					ウェブブラウザもしくは端末でダウンロードできる。Armadillo IoTでデフォルトを作成する場合、
+					<a href="http://manual.atmark-techno.com/armadillo-iot/armadillo-iotg-std_product_manual_ja-2.8.0/ch11.html">
+					awl13(無線モジュール)・Java</a>も同じく最新版をダウンロードする。
+				</p>
+			<h3>Atmark-Distの構成</h3>
+				<p>
+					解凍<br>
+					atmark@atde5:~$ tar xzvf　atmark-dist-20160927.tar.gz<br>
+					atmark@atde5:~$ tar xzvf　linux-3.14-at8.tar.gz<br>
+				</p>
+				<p>
+					シンボリックリンクを張る<br>
+					atmark@atde5:~$ ln -s atmark-dist-20160927 atmark-dist<br>
+					atmark@atde5:~$ cd atmark-dist<br>
+					atmark@atde5:~/atmark-dist$ ln -s ../linux-3.14-at8 linux-3.x<br>
+					atmark@atde5:~/atmark-dist$ ln -s ../awl13-3.0.2-3/ awl13<br>
+					atmark@atde5:~/atmark-dist$ ln -s ../ejdk1.8.0_111/ ejdk<br>
+				</p>
+				<p>
+					コピーする。<br>
+					atmark@atde5:~/atmark-dist$ cp -a  vendors/AtmarkTechno/Armadillo-IoTG-Std/ vendors/AtmarkTechno/my-product<br>
+				</p>
+				<p>
+					<a href="http://manual.atmark-techno.com/armadillo-iot/armadillo-iotg-std_product_manual_ja-2.5.2/ch11.html">これ</a>をみて、<br>
+					atmark@atde5:~/atmark-dist$ make menuconfig<br>
+					を実行する。実施するディレクトリを注意。デフォルトならそのままEXIT後、<br>
+					atmark@atde5:~/atmark-dist$ make<br>
+					で完成。
+				</p>
+			<h3>Atmark-Distのカスタマイズ</h3>
+				<p>
+					Atmark-Distをカスタマイズする手順をしめす。<br>
+					今回作成するカスタムイメージは<br>
+					Network Applications --＞ dnsmasq,ntpdate<br>
+					Miscellaneous Applications --＞ pythonを追加で入れる。<br>
+					チェックが入ってない重要そうなコマンドは<a href="https://ja.wikipedia.org/wiki/BusyBox">busybox(別名「組み込みLinuxの十徳ナイフ」)</a>から提供されるので大丈夫。
+				</p>
+				<p>
+					今回、Pythonを導入するが、容量が大きいためRAM展開できない。
+					<table>
+						参考　Armadillo IoT G2のスペック
+						<tr>
+							<th>RAM</th><td>128MB (LPDDR-266) </td>
+						</tr>
+						<tr>
+							<th>ROM</th><td>32MB (NOR型フラッシュメモリ) </td>
+						</tr>
+					</table><br>
+					そこで、対策としてこれ(<a href="https://users.atmark-techno.com/blog/53/1349">ブログ形式</a>/
+					<a href="https://users.atmark-techno.com/node/1561">質問形式</a>)が紹介されていたが解消されなかったため、
+					使わないと予想されるMiscellaneous Applications --＞RubyとJavaを外した。<br>
+					これ以外にもビルドができなかったことがあったがATDEの入れ直しで直った。各現象は適宜エラー内容をウェブ検索で解決されたい。
+				</p>
+			<h3>イメージの転送</h3>
+				<p>
+					作成したイメージは atmark-dist/images に作成される。
+				</p>
+				<p>
+					atmark@atde5:~/atmark-dist/images$ ls<br>
+					linux.bin  linux.bin.gz  romfs.img  romfs.img.gz
+				</p>
+				<p>
+					ここにできるromfs.imgは任意のフォルダにマウントすることで中身を確認することができる。
+				</p>
+				<p>
+					今回、転送手法として<a href="http://manual.atmark-techno.com/armadillo-guide/armadillo-guide-1_ja-3.1.0/ch07.html#sec_write_image_file">TFTP</a>
+					を使う。シリアル転送よりも高速であるという利点がある。ATDEのネットワーク設定がNATである場合、利用できないので注意が必要。
+					TFTPサーバをインストールしなくても、デフォルトで/var/lib/tftpbootがトップディレクトリとなるサーバが起動している。<br>
+					コピー<br>
+					atmark@atde5:~/atmark-dist/images$ cp linux.bin.gz /var/lib/tftpboot/linux.bin.gz<br>
+					atmark@atde5:~/atmark-dist/images$ cp romfs.img.gz /var/lib/tftpboot/romfs.img.gz<br>
+					ミニコン起動<br>
+					atmark@atde5:~/atmark-dist/images$ LANG=C minicom --noinit --wrap --device /dev/ttyUSB0<br>
+					転送<br>
+					hermit> tftpdl 172.16.13.206 172.16.13.201 --kernel=linux.bin.gz --userland=romfs.img.gz<br>
+					hermit> clearenv<br>
+					hermit> b<br>
+				</p>
+			
+			<h3>NFCライブラリを使えるようにする</h3>
+				<h2> apt-get系 </h2>
+					<p>
+						<a href="https://users.atmark-techno.com/blog/53/1349">Armadillo-IoT: ユーザーランドにPythonを追加する</a>を参考にする。<br>
+						apt-getで持ってくるものは、atde5:~/atmark-dist/romfs$　に構築する。
+					</p>
+					<p>
+						atmark@atde5:~$ cd /tmp<br>
+						<a href="http://ftp.jp.debian.org/debian/pool/main/p/pyusb/">Python-usb</a>をインストール　　　　
+						※python3-usb_1.0.0-1_all.debは3系ようなのでPython2.7では動かないので注意<br>
+						atmark@atde5:/tmp$ wget http://ftp.jp.debian.org/debian/pool/main/p/pyusb/python-usb_1.0.0-1_all.deb<br>
+						<a href="http://ftp.jp.debian.org/debian/pool/main/u/usbutils/">USBユーティリティ</a>をインストール<br>
+						atmark@atde5:/tmp$ wget http://ftp.jp.debian.org/debian/pool/main/u/usbutils/usbutils_008-1_armel.deb
+					</P>
+					<p>
+						パッケージ情報取得<br>
+						atmark@atde5:/tmp$ mkdir dpkg_dir<br>
+						atmark@atde5:/tmp$ dpkg -x python-usb_1.0.0-1_all.deb dpkg_dir<br>
+						atmark@atde5:/tmp$ dpkg -x usbutils_008-1_armel.deb dpkg_dir<br>
+					</p>
+					<p>
+						romfsに構築<br>
+						atmark@atde5:/tmp$ cp -ar dpkg_dir/* ~/atmark-dist/romfs/.<br>
+					</p>
+				<h2> pip系 </h2>	
+					<p>
+						ATDEにpipをインストールする。<br>
+						atmark@debian:~$ sudo apt-get install python-pip<br>
+					</p>
+					<p>
+						atmark@atde5:~$ cd /tmp<br>
+						atmark@atde5:/tmp$ mkdir dpkg_dir<br>
+						atmark@atde5:/tmp$ sudo pip -t /tmp/pip_dirinstall libusb1==1.5.3<br> 
+						atmark@atde5:/tmp$ sudo pip -t /tmp/pip_dirinstall pyserial==3.2.1<br>
+					</p>
+					<p>
+						※参考URLではlocalに保存しているが存在しないので訂正。<br>
+						atmark@atde5:/tmp$ cp -ar pip_dir/* ~/atmrk-dist/romfs/usr/lib/python2.7/dist-packages<br>
+					</p>
+					<p>
+						pipでインストールした2つはbuildというフォルダで出力される。ばらさなければならない。
+						libusb-1.0.soはATDEの/usr/arm-linux-gnueabi/lib/libusb-1.0.soをコピーした(リンクになってたのでリンク先もコピー)。<br> 
+						[root@armadillo-iotg (ttymxc1) /usr/lib/python2.7/dist-packages]# ls -al<br> 
+						total 318<br> 
+						drwxr-xr-x&emsp;　8 root&emsp;root&emsp;&emsp;1024 Jan  1 15:44 ./<br> 
+						drwxr-xr-x&emsp;25 root&emsp;root&emsp;&emsp;5120 Nov 22  2016 ../<br> 
+						lrwxrwxrwx&emsp;　1 root&emsp;root&emsp;&emsp;19 Nov 22  2016 libusb-1.0.so -> libusb-1.0.so.0.1.0<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;50852 Nov 22  2016 libusb-1.0.so.0.1.0<br> 
+						drwxr-xr-x&emsp;　5 root&emsp;root&emsp;&emsp;1024 Nov 22  2016 libusb1/<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;50371 Jan  1 15:36 libusb1.py<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;27019 Jan  1 15:37 libusb1.pyc<br> 
+						drwxr-xr-x&emsp;　8 root&emsp;root&emsp;&emsp;1024 Nov 18  2016 nfc/<br> 
+						drwxr-xr-x&emsp;　6 root&emsp;root&emsp;&emsp;1024 Nov 22  2016 pyserial/<br> 
+						drwxr-xr-x&emsp;　2 root&emsp;root&emsp;&emsp;1024 Nov 22  2016 pyserial.egg-info/<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;2214 May  8  2016 pyusb-1.0.0.egg-info<br> 
+						drwxr-xr-x&emsp;　5 root&emsp;root&emsp;&emsp;1024 Jan  1 15:37 serial/<br> 
+						drwxr-xr-x&emsp;　3 root&emsp;root&emsp;&emsp;1024 May  8  2016 usb/<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;87733 Nov 22  2016 usb1.py<br> 
+						-rw-r--r--&emsp;　1 root&emsp;root&emsp;&emsp;86059 Jan  1 14:57 usb1.pyc<br> 
+					</P>
+					<p>
+						このような構成にした。<br> 
+						<br>
+						libusb1.pyの167行目付近を以下のように修正した。<br> 
+						pathの指定が分からないが一応動作確認済み。<br> 
+						except OSError:<br> 
+						&emsp;&emsp;libusb_path = '/usr/lib/python2.7/dist-packages/libusb-1.0.so'    		＃ここを変更した（変更前：libusb_path = None）  <br>   
+						&emsp;&emsp;base_name = 'usb-1.0'<br> 
+						&emsp;&emsp;if 'FreeBSD' in system:<br> 
+						&emsp;&emsp;&emsp;&emsp;# libusb.so.2 on FreeBSD: load('libusb.so') would work fine, but...<br> 
+						&emsp;&emsp;&emsp;&emsp;# libusb.so.2debian on Debian GNU/kFreeBSD: here it wouldn't work.<br> 
+						&emsp;&emsp;&emsp;&emsp;# So use find_library instead.<br> 
+						&emsp;&emsp;&emsp;&emsp;base_name = 'usb'<br>
+						&emsp;&emsp;elif system == 'Darwin':  <br> 
+					</p>
+								
+	</div><!-- main -->
+
+<div id="footer">
+Copyright &copy; <a href=""></a> All Rights Reserved.
+</div> <!--footer -->
+
+</div><!-- out -->
+
+</body></html>
